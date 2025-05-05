@@ -1,0 +1,153 @@
+#Script to perform differential expression analysis using DESeq2
+
+#Load libraries
+```{r}
+library(DESeq2)
+library(tximport)
+library(tidyverse)
+library(dplyr)
+library(biomaRt)
+library(writexl)
+```
+
+# Step 1: Read in sample and gene metadata
+
+```{r}
+
+metadata <- read.csv("./metadata.csv")
+
+mart <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+
+t2g <- getBM(
+  attributes = c("ensembl_transcript_id", "external_gene_name", "transcript_biotype"),
+  filters = "transcript_biotype",
+  values = "protein_coding",
+  mart = mart
+)
+
+```
+
+# Step 2: Read in gene quantification data to a DESeq2 object
+
+```{r}
+
+file_names = metadata$FileName
+
+file_names = file.path("./quants/", file_names)
+
+names(file_names) = metadata$FileName
+
+tx_data = tximport(file_names,
+                   type = c("salmon"),
+                   tx2gene = t2g,
+                   abundanceCol = "TPM",
+                   countsCol = "NumReads",
+                   lengthCol = "EffectiveLength",
+                   ignoreTxVersion = T,
+                   ignoreAfterBar = T)
+
+dds = DESeqDataSetFromTximport(tx_data,
+                               colData = metadata,
+                               design = ~ Treatment)
+
+keep = rowSums(counts(dds)) >= 10
+
+dds = dds[keep,]
+
+```
+
+#Step 3: Perform PCA analysis to ensure data integrity
+
+```{r}
+
+dds_norm = vst(dds)
+
+normalized_counts = assay(dds_norm) %>%
+  t()
+
+normalized_counts_df <- as.data.frame(normalized_counts)
+
+
+pca_res <- prcomp(normalized_counts_df)
+
+
+pca_samples <- as.data.frame(pca_res$x)
+
+pca_samples <- data.frame(pca_samples) %>%
+  tibble::rownames_to_column("FileName") %>%
+  dplyr::inner_join(metadata, by = "FileName")
+
+
+plot <- ggplot(pca_samples,
+  aes(
+    x = PC1,
+    y = PC2,
+    color = Treatment
+  )
+) +
+  geom_point(size=4) 
+
+plot
+
+```
+
+
+# Step 4: Perform differential expression analysis
+
+# Set the factor level so that comparison is Drug / Treatment
+```{r}
+
+dds$Treatment <- relevel(dds$Treatment, ref = "DMSO")
+
+```
+
+
+```{r}
+
+dds_diff <- DESeq(dds)
+
+res <- results(dds_diff)
+
+res_df <- as.data.frame(res)
+
+```
+
+Step 4: Explore and export results
+
+```{r}
+summary(res)
+```
+
+
+```{r}
+
+res_sig_up <- filter(res_df,
+       res_df$padj < 0.05 & res_df$log2FoldChange > 2)
+
+res_sig_down <- filter(res_df,
+       res_df$padj < 0.05 & res_df$log2FoldChange < -2)
+
+res_sig <- rbind(res_sig_up, res_sig_down)
+
+res_sig <- rownames_to_column(res_sig, var = "Gene")
+
+
+write_xlsx(res_sig, "./sig_genes.xlsx")
+
+```
+
+
+```{r}
+
+plotMA(res)
+
+```
+
+
+
+
+
+
+
+
+
