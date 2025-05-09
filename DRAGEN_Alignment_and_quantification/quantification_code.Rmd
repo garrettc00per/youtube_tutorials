@@ -1,0 +1,27 @@
+
+Creating hashref reference
+```{bash}
+
+dragen --build-hash-table true --ht-reference hashref/GRCh38.p13.genome.fa --ht-build-rna-hashtable true --output-directory ref/ --enable-cnv true
+
+```
+
+
+Mapping and Quantification Code Chunk
+```{bash}
+
+dragen -f -r GrCh38p13v9 \
+-1 RNA/I315I_R1_RNA_1.fastq.gz \
+-2 RNA/I315I_R1_RNA_2.fastq.gz \
+-a GrCh38p13v9/gencode.v36.annotation.gtf \
+--enable-map-align true \
+--enable-rna true \
+--enable-rna-quantification true \
+--enable-map-align-output true \
+--output-directory RNAOut \
+--output-file-prefix I315I_R1_RNA \
+--RGID I315I_R1_RNA_01 \
+--RGSM I315I_R1_RNA_01_S1;
+
+```
+
