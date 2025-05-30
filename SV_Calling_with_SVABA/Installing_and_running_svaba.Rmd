@@ -1,0 +1,105 @@
+
+This guide will help you install all the necessary packages to install svaba and run structural variant analysis. 
+
+These commands will (mostly) all be run on your AWS t2xlarge linux instance. SVABA analysis for 1 30X human whole genome tumor/normal comparison will take 36 hours. If time is critical I recommend increasing memory on your instance. I recommend Increasing storage about ~400GB over what you plan on loading onto the instance to account for intermediate files.
+
+Author: Garrett Cooper
+Date: May 29, 2025
+
+
+Install HTSLib
+```{bash}
+
+sudo yum install git -y
+
+sudo yum groupinstall "Development Tools" -y
+
+sudo yum install -y zlib-devel bzip2-devel xz-devel curl-devel
+
+git clone https://github.com/samtools/htslib.git
+
+cd htslib
+
+git submodule update --init --recursive
+
+make
+
+sudo make install
+
+```
+
+Install cmake
+
+```{bash}
+
+sudo yum install cmake -y
+
+```
+
+Installing svaba
+```{bash}
+
+git clone --recursive https://github.com/walaj/svaba
+
+cd svaba
+
+mkdir build
+
+cd build
+
+cmake .. -DHTSLIB_DIR=/usr/local
+
+make
+
+export PATH=$PATH:/home/ec2-user/svaba/build #Will need to rerun this command if you close your current shell session.
+
+```
+
+```{bash}
+Downloading reference file:
+
+https://gdc.cancer.gov/about-data/gdc-data-processing/gdc-reference-files
+```
+
+
+
+Installing bwa and samtools using bioconda
+
+```{bash}
+
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+
+bash Miniconda3-latest-Linux-x86_64.sh
+
+#restart shell window and relogin
+
+conda config --add channels defaults
+conda config --add channels bioconda
+conda config --add channels conda-forge
+
+conda install -c bioconda bwa
+
+conda install -c bioconda samtools
+
+
+samtools faidx GRCh38.d1.vd1.fa
+bwa index GRCh38.d1.vd1.fa #this one takes about an hour to run
+
+
+
+```
+
+
+Running SVABA
+
+```{bash}
+
+svaba run -t PARPFY_T_WGS.bam -n PARPFY_N_WGS.bam -G GRCh38.p13.genome.fa -a svaba_output
+
+```
+
+
+
+
+
+

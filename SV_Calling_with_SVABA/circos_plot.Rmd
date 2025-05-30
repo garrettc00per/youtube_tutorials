@@ -1,0 +1,125 @@
+
+
+This code is used to process SVABA output, and plot a circos plot. This code will be run on your local computer after you have completed SVABA SV calling and have downloaded the somatic.sv.vcf file.
+
+
+
+
+```{r}
+
+library(dplyr)
+library(stringr)
+library(VariantAnnotation)
+library(circlize)
+library(readr)
+
+```
+
+
+
+```{r}
+
+vcf_df <- read_tsv("svaba_output.svaba.somatic.sv.vcf", comment = "##")
+
+vcf_df_filtered <- vcf_df[grep("PASS", vcf_df$FILTER), ]
+
+chr1 <- vcf_df_filtered$"#CHROM"
+pos1 <- vcf_df_filtered$POS
+
+alt_info <- vcf_df_filtered$ALT
+
+alt_info_df <- as.data.frame(alt_info)
+
+pos2 <- numeric(nrow(alt_info_df))
+
+chr2 <- vcf_df_filtered$"#CHROM"
+
+for (i in 1:nrow(alt_info_df)) {
+  
+  # Check if the event is a DEL or INS (by looking for <DEL> or <INS> in the ALT column)
+  if (grepl("<DEL>", alt_info_df$alt_info[i]) | grepl("<INS>", alt_info_df$alt_info[i])) {
+    # Extract the endpoint number after END= in the INFO column for DEL or INS events
+    end_match <- regexpr("END=(\\d+)", vcf_df_filtered$INFO[i])
+    if (end_match != -1) {  # If END= exists in INFO column
+      # Extract the actual match (number after END=)
+      end_value <- regmatches(vcf_df_filtered$INFO[i], end_match)
+      # Remove 'END=' from the match to just keep the number
+      pos2[i] <- as.integer(sub("END=", "", end_value))
+    }
+  } else {
+    # For anything else, use the value in alt_info_df$alt_info for pos2
+    pos2[i] <- as.integer(sub(".*:(\\d+).*", "\\1", alt_info_df$alt_info[i]))  # Adjust regex for breakpoint-like cases
+  }
+}
+
+translocations_df <- data.frame(chr1 = chr1, pos1 = pos1, chr2 = chr2, pos2 = pos2)
+
+translocations_df <- translocations_df %>%
+  mutate(
+    # Swap chromosome and position values when pos1 > pos2
+    tmp_chr = ifelse(pos1 > pos2, chr2, chr1),
+    tmp_pos = ifelse(pos1 > pos2, pos2, pos1),
+    chr2 = ifelse(pos1 > pos2, chr1, chr2),
+    pos2 = ifelse(pos1 > pos2, pos1, pos2),
+    chr1 = tmp_chr,
+    pos1 = tmp_pos
+  ) %>%
+  dplyr::select(-tmp_chr, -tmp_pos)
+
+
+translocations_df$color <- ifelse(grepl("<DEL>", alt_info_df$alt_info), "red", 
+                                   ifelse(grepl("<INS>", alt_info_df$alt_info), "blue", "black"))
+
+
+translocations_df <- translocations_df %>%
+  filter(translocations_df$chr1 != "chr17_KI270730v1_random")
+
+
+
+chromosomes_data <- data.frame(
+  chr = c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10",
+          "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20",
+          "chr21", "chr22", "chrX", "chrY"),
+  start = rep(1, 24),  # Each chromosome starts at position 1
+  end = c(248956422, 242193529, 198295559, 190214555, 181748087, 170805979, 159345973, 145138636, 138394717, 133797422,
+          135086622, 133275309, 114364328, 107043718, 101991189, 90338345, 83257441, 80373285, 58617616, 64444167,
+          46709983, 50818468, 156040895, 57227415) # Chromosome end positions
+)
+
+
+png("circos_plot_PARPFY_svaba.png", width = 8000, height = 8000, res=600)
+
+# Set Circos parameters to adjust font size
+circos.par(track.height = 0.05, cell.padding = c(0.02, 0, 0.02, 0), gap.after = 2, points.overflow.warning = FALSE)
+circos.genomicInitialize(chromosomes_data, plotType = c("axis"))
+
+# Adjust chromosome label font size
+circos.track(track.index = 1, panel.fun = function(x, y) {
+  chr = get.cell.meta.data("sector.index")
+  xlim = get.cell.meta.data("xlim")
+  ylim = get.cell.meta.data("ylim")
+  circos.text(mean(xlim), ylim[1] + 2.0, chr, cex = 1.5, facing = "outside", niceFacing = TRUE)
+}, bg.border = NA)
+
+# Plot the links between chromosomes
+circos.genomicLink(
+  region1 = translocations_df[, c("chr1", "pos1", "pos1")],  # Start-end same for point links
+  region2 = translocations_df[, c("chr2", "pos2", "pos2")],
+  col = translocations_df$color
+)
+
+legend("topright", 
+       legend = c("Deletion", "Insertion", "Break End"),  # Legend labels
+       fill = c("red", "blue", "black"),               # Corresponding colors
+       border = "black",                               # Border color
+       box.lwd = 1,                                    # Box line width
+       bty = "n",                                      # No box around the legend
+       cex = 1.2)                                      # Adjust font size
+
+title(main = "PARPFY Structural Variants", line = -1, cex.main = 2)
+
+
+dev.off()
+
+```
+
