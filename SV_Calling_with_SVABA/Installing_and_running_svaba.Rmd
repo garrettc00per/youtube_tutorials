@@ -3,6 +3,10 @@ This guide will help you install all the necessary packages to install svaba and
 
 These commands will (mostly) all be run on your AWS t2xlarge linux instance. SVABA analysis for 1 30X human whole genome tumor/normal comparison will take 36 hours. If time is critical I recommend increasing memory on your instance. I recommend Increasing storage about ~400GB over what you plan on loading onto the instance to account for intermediate files.
 
+Whole genome sequence files were obtained from here:
+https://portal.gdc.cancer.gov/cases/5cdd05ea-5285-50b7-971a-8bc005d01669
+Downloading WGS data from GDC requires prior Controlled-Access Authorization.
+
 Author: Garrett Cooper
 Date: May 29, 2025
 
