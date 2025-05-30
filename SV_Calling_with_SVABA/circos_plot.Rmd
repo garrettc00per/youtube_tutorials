@@ -2,7 +2,8 @@
 
 This code is used to process SVABA output, and plot a circos plot. This code will be run on your local computer after you have completed SVABA SV calling and have downloaded the somatic.sv.vcf file.
 
-
+Author: Garrett Cooper
+Date: May 29, 2025
 
 
 ```{r}
